@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<!---
+MIT License
+
+Copyright (c) 2022 Nikolai Ozerov, VE3NKL
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+--->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cistercian Clock</title>
+  <meta name="description" content="A simple Clock with time displayed as Cistercian numerals">
+  <link rel="stylesheet" href="css/styles.css?v=1.0">
+  <style>
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+    }
+    canvas {
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+    }
+</style>
+</head>
+<body onload="init();">
+  <canvas id="myCanvas"/>
+  <script>
+    function cistercian_int(ctx, cx, cy, hs, ss, th, number) {
+      let n0 = number % 10;
+      let num  = Math.floor(number / 10);
+      let n1 = num % 10;
+      num =  Math.floor(num / 10);
+      let n2 = num % 10;
+      num =  Math.floor(num / 10);
+      let n3 = num % 10;
+      let digits = [ n0, n1, n2, n3 ];
+      ctx.beginPath();
+      ctx.lineWidth = th;
+      ctx.moveTo(cx, cy-hs);
+      ctx.lineTo(cx, cy+hs);
+      for (let p = 0; p < 4; p++) {
+        let n = digits[p];
+        let xm = corrections[p][0];
+        let ym = corrections[p][1]; 
+        for (let i = 0; i < segment_matrix[n].length; i++) {
+          if (i == 0) {
+            ctx.moveTo(cx + xm * (segment_matrix[n][i][0]*ss), cy + ym * (segment_matrix[n][i][1]*ss-hs));
+          } else {
+            ctx.lineTo(cx + xm * (segment_matrix[n][i][0]*ss), cy + ym * (segment_matrix[n][i][1]*ss-hs));
+          }
+        } 
+      }
+      ctx.stroke();
+    }
+    function draw() {
+      const canvas = document.getElementById('myCanvas');
+      const ctx = canvas.getContext('2d');
+      ctx.canvas.width  = window.innerWidth;
+      ctx.canvas.height = window.innerHeight;
+  
+      let w = canvas.width;
+      let h = canvas.height;
+      let r = Math.min(Math.floor((h-8)/2),Math.floor((w-8)/2));
+      let cx = Math.floor((w - 2 * r) / 2) + r
+      let cy = Math.floor((h - 2 * r) / 2) + r
+      let hs = Math.floor(r * 5/8);
+      let ss = Math.floor(hs * 3/4);
+      let th = 16;
+      
+      let time = new Date();
+      let year    = time.getFullYear();
+      let month   = time.getMonth() + 1;
+      let day     = time.getDate();
+      let minutes = time.getMinutes();
+      let hours = time.getHours();
+      let seconds = time.getSeconds();
+      let ms = time.getMilliseconds();
+      
+      ctx.globalCompositeOperation = 'destination-over';
+      ctx.lineCap = "round";
+      ctx.clearRect(0, 0, 512, 512); // clear canvas
+      
+      ctx.lineWidth = 2;
+      ctx.fillStyle   = 'rgba(64, 255, 255, 1.0)';
+      ctx.strokeStyle = 'rgba(128, 255, 255, 1.0)';
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, r - th, 0, Math.PI * 2, true);       // Outer circle 1
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2, true);           // Outer circle 2
+      ctx.stroke();
+      
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(((2 * Math.PI) / 60000) * (seconds * 1000 + ms) - 0.5 * Math.PI);
+      
+      ctx.beginPath();
+      ctx.arc(r-Math.floor(th/2), 0, Math.floor(th/2), 0, Math.PI * 2, true);       // Seconds hand
+      ctx.fill();
+      
+      ctx.restore();
+      
+      cistercian_int(ctx, cx, cy, hs, ss, th, hours * 100 + minutes);
+      let s_hs = Math.floor(ss / 6);
+      let s_cx = cx - ss + s_hs;
+      let s_cy = cy + hs - s_hs * 3;
+      let s_ss = Math.floor(s_hs * 3/4);
+      cistercian_int(ctx, s_cx, s_cy, s_hs, s_ss, 2, year);
+      cistercian_int(ctx, s_cx + s_ss * 3, s_cy, s_hs, s_ss, 2, month * 100 + day);
+
+      ctx.fillStyle   = 'rgba(0, 0, 0, 1.0)';
+      ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+      window.requestAnimationFrame(draw);
+    }
+    function init() {
+      const canvas = document.getElementById('myCanvas');
+      console.log("Canvas size=" + canvas.width + " x " + canvas.height);
+      window.requestAnimationFrame(draw);
+    }
+    
+    var corrections = [
+      [ 1,  1],
+      [-1,  1],
+      [ 1, -1],
+      [-1, -1]
+    ];
+    
+    var segment_matrix = [  // 1 means that 'ss' value should be added
+        [], 
+        [[0, 0], [1, 0]],
+        [[0, 1], [1, 1]],
+        [[0, 0], [1, 1]],
+        [[0, 1], [1, 0]],
+        [[0, 1], [1, 0], [0, 0]], 
+        [[1, 0], [1, 1]],
+        [[0, 0], [1, 0], [1, 1]],
+        [[0, 1], [1, 1], [1, 0]],
+        [[0, 1], [1, 1], [1, 0], [0, 0]]
+      ];
+
+  </script>
+</body>
+</html>
